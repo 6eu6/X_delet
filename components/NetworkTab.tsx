@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from "react";
 import { api, fmtDate, retry, runQueue, Progress } from "@/lib/client";
 import type { UserLite } from "@/lib/twitter";
 import { ProgressBox } from "./ProgressBox";
+import { JobsPanel } from "./JobsPanel";
 
 type Kind = "followings" | "followers";
 const num = (v: string) => (v === "" ? undefined : Number(v));
@@ -28,6 +29,7 @@ export function NetworkTab({ kind, onMessage }: { kind: Kind; onMessage: (userNa
   const [pages, setPages] = useState(0);
   const [prog, setProg] = useState<Progress | null>(null);
   const [err, setErr] = useState("");
+  const [jobsKey, setJobsKey] = useState(0);
   const [delay, setDelay] = useState(1500);
   const stop = useRef(false);
 
@@ -72,6 +74,15 @@ export function NetworkTab({ kind, onMessage }: { kind: Kind; onMessage: (userNa
     setRunning(false);
   }
 
+  async function enqueueRemoval() {
+    const picked = shown.filter((u) => sel.has(u.id)).map((u) => ({ id: u.id, userName: u.userName }));
+    if (!picked.length) return;
+    if (!confirm(`إرسال ${picked.length} متابع للوركر لإزالتهم؟ (سيتم ببطء على أيام إذا زاد العدد عن السقف اليومي)`)) return;
+    setErr("");
+    try { await api("/api/jobs", { users: picked }); setSel(new Set()); setJobsKey((k) => k + 1); }
+    catch (e) { setErr((e as Error).message); }
+  }
+
   const toggle = (id: string) => setSel((o) => { const n = new Set(o); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const busy = loading || running;
 
@@ -82,7 +93,7 @@ export function NetworkTab({ kind, onMessage }: { kind: Kind; onMessage: (userNa
         <div className="row"><button onClick={load} disabled={busy}>{loading ? `جارٍ التحميل… (${pages})` : "تحميل القائمة"}</button>
           {loading && <button className="sec" onClick={() => (stop.current = true)}>إيقاف</button>}
           {users.length > 0 && <span className="pill">{users.length} حساب</span>}</div>
-        {!isFollowings && <p className="note">واجهة twitterapi.io لا توفّر حذف متابع (Remove follower) أو حظره، لذلك هذه القائمة للعرض والفلترة فقط.</p>}
+        {!isFollowings && <p className="note">إزالة المتابعين تتم عبر الوركر (متصفح آلي على سيرفرك) لأن twitterapi.io لا توفّر هذا الإجراء. حدّد الحسابات ثم أرسلها للوركر؛ تُنفَّذ ببطء وبسقف يومي حفاظاً على الحساب.</p>}
         {err && <p className="err">{err}</p>}
       </div>
 
@@ -111,24 +122,25 @@ export function NetworkTab({ kind, onMessage }: { kind: Kind; onMessage: (userNa
         </div>
       )}
 
+      {!isFollowings && <JobsPanel reload={jobsKey} />}
       <ProgressBox p={prog} running={running} onStop={() => (stop.current = true)} />
 
       {users.length > 0 && (
         <div className="card">
           <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
             <span>المعروض {shown.length} · المحدد {sel.size}</span>
-            {isFollowings && (
-              <div className="row">
-                <button className="sec" onClick={() => setSel(new Set(shown.map((u) => u.id)))}>تحديد المعروض</button>
-                <button className="sec" onClick={() => setSel(new Set())}>إلغاء</button>
-                <button className="danger" disabled={busy || !sel.size} onClick={unfollowSel}>إلغاء متابعة ({sel.size})</button>
-              </div>
-            )}
+            <div className="row">
+              <button className="sec" onClick={() => setSel(new Set(shown.map((u) => u.id)))}>تحديد المعروض</button>
+              <button className="sec" onClick={() => setSel(new Set())}>إلغاء</button>
+              {isFollowings
+                ? <button className="danger" disabled={busy || !sel.size} onClick={unfollowSel}>إلغاء متابعة ({sel.size})</button>
+                : <button className="danger" disabled={busy || !sel.size} onClick={enqueueRemoval}>إزالة عبر الوركر ({sel.size})</button>}
+            </div>
           </div>
           <div className="list">
             {shown.map((u) => (
               <div key={u.id} className="item">
-                {isFollowings && <input type="checkbox" checked={sel.has(u.id)} onChange={() => toggle(u.id)} />}
+                <input type="checkbox" checked={sel.has(u.id)} onChange={() => toggle(u.id)} />
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img className="avatar" src={u.profilePicture} alt="" />
                 <div className="body">

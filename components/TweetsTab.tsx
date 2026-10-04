@@ -17,18 +17,30 @@ export function TweetsTab() {
   const [err, setErr] = useState("");
   const [delay, setDelay] = useState(1500);
   const [scanned, setScanned] = useState(0);
+  const [backedUp, setBackedUp] = useState(false);
+  const [keep, setKeep] = useState("");
   const stop = useRef(false);
 
   const set = <K extends keyof TweetFilters>(k: K, v: TweetFilters[K]) => setF((o) => ({ ...o, [k]: v }));
 
+  const keepIds = new Set(keep.match(/\d{10,}/g) ?? []);
+
+  function backup() {
+    const blob = new Blob([JSON.stringify(tweets, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `tweets-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click(); URL.revokeObjectURL(a.href); setBackedUp(true);
+  }
+
   async function scan() {
-    setErr(""); setTweets([]); setSel(new Set()); setScanned(0); setProg(null);
+    setErr(""); setTweets([]); setSel(new Set()); setScanned(0); setProg(null); setBackedUp(false);
     stop.current = false; setScanning(true);
     let cursor = ""; const seen = new Set<string>(); let pages = 0, empty = 0;
     try {
       for (;;) {
         const r = await retry(() => api<{ tweets: TweetLite[]; hasNext: boolean; cursor: string }>("/api/tweets", { filters: f, cursor }));
-        const fresh = r.tweets.filter((t) => !seen.has(t.id));
+        const fresh = r.tweets.filter((t) => !seen.has(t.id) && !keepIds.has(t.id));
         fresh.forEach((t) => seen.add(t.id));
         setTweets((o) => [...o, ...fresh]);
         setSel((o) => new Set([...o, ...fresh.map((t) => t.id)]));
@@ -43,7 +55,10 @@ export function TweetsTab() {
   async function del() {
     const ids = tweets.filter((t) => sel.has(t.id)).map((t) => t.id);
     if (!ids.length) return;
-    if (!confirm(`سيتم حذف ${ids.length} تغريدة نهائياً. هل أنت متأكد؟`)) return;
+    if (!backedUp) { setErr("نزّل النسخة الاحتياطية أولاً"); return; }
+    if (ids.length > 20) {
+      if (prompt(`سيتم حذف ${ids.length} تغريدة نهائياً ولا يمكن التراجع.\nاكتب: احذف`) !== "احذف") return;
+    } else if (!confirm(`حذف ${ids.length} تغريدة نهائياً؟`)) return;
     stop.current = false; setDeleting(true); setErr("");
     await runQueue(ids, (id) => api("/api/tweets/delete", { id }).then(() => undefined), {
       delay, stop, onProgress: setProg,
@@ -97,6 +112,7 @@ export function TweetsTab() {
           <label>اللغة (مثل ar, en)<input value={f.lang ?? ""} onChange={(e) => set("lang", e.target.value || undefined)} /></label>
           <label>التأخير بين كل حذف (مللي ثانية)<input type="number" min={0} value={delay} onChange={(e) => setDelay(Number(e.target.value))} /></label>
         </div>
+        <label style={{ marginTop: 10 }}>تغريدات محمية من الحذف (الصق روابط أو معرّفات، مثل التغريدة المثبتة)<textarea rows={2} value={keep} onChange={(e) => setKeep(e.target.value)} /></label>
         <p className="note">بدون أي فلتر = كل تغريداتك. التواريخ بتوقيت UTC.</p>
         <div className="row">
           <button onClick={scan} disabled={busy}>{scanning ? "جارٍ الفحص…" : "فحص التغريدات"}</button>
@@ -115,7 +131,8 @@ export function TweetsTab() {
             <div className="row">
               <button className="sec" onClick={() => setSel(new Set(tweets.map((t) => t.id)))}>تحديد الكل</button>
               <button className="sec" onClick={() => setSel(new Set())}>إلغاء التحديد</button>
-              <button className="danger" onClick={del} disabled={busy || sel.size === 0}>حذف المحدد ({sel.size})</button>
+              <button className="sec" onClick={backup} disabled={busy}>{backedUp ? "✓ تم تنزيل النسخة" : "1) نسخة احتياطية"}</button>
+              <button className="danger" onClick={del} disabled={busy || sel.size === 0 || !backedUp}>2) حذف المحدد ({sel.size})</button>
             </div>
           </div>
           <div className="list">
