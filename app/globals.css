@@ -1,0 +1,28 @@
+:root { --bg:#0f1115; --card:#181b22; --line:#2a2f3a; --text:#e8eaf0; --mute:#8b93a5; --acc:#4c8dff; --danger:#ef4444; --ok:#22c55e; }
+@media (prefers-color-scheme: light) { :root { --bg:#f5f6f8; --card:#fff; --line:#dfe2e8; --text:#14171f; --mute:#5b6477; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font-family: system-ui, "Segoe UI", Tahoma, sans-serif; line-height:1.5; }
+.wrap { max-width:1000px; margin:0 auto; padding:16px; }
+h1 { font-size:20px; margin:0; } h2 { font-size:16px; margin:0 0 10px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:14px; }
+.row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:10px; }
+label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--mute); }
+input, select, textarea { background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px; font:inherit; width:100%; }
+button { background:var(--acc); color:#fff; border:0; border-radius:8px; padding:8px 14px; font:inherit; cursor:pointer; }
+button.sec { background:transparent; color:var(--text); border:1px solid var(--line); }
+button.danger { background:var(--danger); }
+button:disabled { opacity:.5; cursor:not-allowed; }
+.tabs { display:flex; gap:6px; overflow-x:auto; margin:12px 0; }
+.tabs button { background:var(--card); color:var(--mute); border:1px solid var(--line); white-space:nowrap; }
+.tabs button.on { background:var(--acc); color:#fff; border-color:var(--acc); }
+.item { display:flex; gap:10px; padding:10px 4px; border-bottom:1px solid var(--line); align-items:flex-start; }
+.item input[type=checkbox] { width:auto; margin-top:5px; }
+.item .body { flex:1; min-width:0; overflow-wrap:anywhere; }
+.meta { color:var(--mute); font-size:12px; }
+.avatar { width:40px; height:40px; border-radius:50%; background:var(--line); object-fit:cover; flex:none; }
+.list { max-height:60vh; overflow:auto; }
+.bar { height:8px; background:var(--line); border-radius:99px; overflow:hidden; } .bar > i { display:block; height:100%; background:var(--ok); }
+.err { color:var(--danger); font-size:13px; } .note { color:var(--mute); font-size:13px; }
+.pill { font-size:12px; padding:2px 8px; border-radius:99px; border:1px solid var(--line); color:var(--mute); }
+a { color:var(--acc); }
